@@ -1,0 +1,26 @@
+<RCC>
+    <qresource prefix="/">
+        <file>ui/main.qml</file>
+        <file>ui/styles/Theme.qml</file>
+        <file>ui/views/CalcView.qml</file>
+        <file>ui/components/CalcButton.qml</file>
+        <file>ui/assets/back1_button.svg</file>
+        <file>ui/assets/back2_button.svg</file>
+        <file>ui/assets/back_button-1.svg</file>
+        <file>ui/assets/back_button-2.svg</file>
+        <file>ui/assets/back_button.svg</file>
+        <file>ui/assets/battery.svg</file>
+        <file>ui/assets/bkt.svg</file>
+        <file>ui/assets/bounds.svg</file>
+        <file>ui/assets/cellular.svg</file>
+        <file>ui/assets/division.svg</file>
+        <file>ui/assets/equal.svg</file>
+        <file>ui/assets/minus.svg</file>
+        <file>ui/assets/multiplication.svg</file>
+        <file>ui/assets/percent.svg</file>
+        <file>ui/assets/plus.svg</file>
+        <file>ui/assets/plus_minus.svg</file>
+        <file>ui/assets/wifi.svg</file>
+        <file>ui/assets/bg_display.svg</file>
+    </qresource>
+</RCC>
