@@ -16,21 +16,22 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
-        version: '5.15.13'
+        version: '5.15.2'
         target: 'desktop'
         arch: 'win64_mingw81'
         modules: ''
         dir: '${{ github.workspace }}/qt'
-        cached: 'true'
+        cache: 'true'
+        install-deps: 'false'
 
     - name: Configure CMake
       run: |
         cmake -S . -B build `
           -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.13/mingw81_64"
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.2/mingw81_64"
       shell: pwsh
 
     - name: Build Project
@@ -40,11 +41,17 @@ jobs:
 
     - name: Deploy Qt Dependencies
       run: |
-        ${{ github.workspace }}/qt/5.15.13/mingw81_64/bin/windeployqt.exe `
+        $qtBinPath = "${{ github.workspace }}/qt/5.15.2/mingw81_64/bin"
+        $exePath = "build/Release/calcapp.exe"
+        
+        Write-Host "Running windeployqt from: $qtBinPath"
+        Write-Host "Target EXE: $exePath"
+        
+        & "$qtBinPath/windeployqt.exe" `
           --release `
           --no-compiler-runtime `
           --no-opengl-sw `
-          build/Release/calcapp.exe
+          "$exePath"
       shell: pwsh
       continue-on-error: true
 
@@ -53,12 +60,20 @@ jobs:
         $mingwBin = "C:\msys64\mingw64\bin"
         $targetDir = "build/Release"
         
-        if (Test-Path "$mingwBin\libgcc_s_seh-1.dll") {
-            Copy-Item "$mingwBin\libgcc_s_seh-1.dll" "$targetDir/"
-            Copy-Item "$mingwBin\libstdc++-6.dll" "$targetDir/"
-            Copy-Item "$mingwBin\libwinpthread-1.dll" "$targetDir/"
-        } else {
-            Write-Host "MinGW runtime DLLs not found in standard path, relying on windeployqt or system PATH."
+        $libs = @(
+            "libgcc_s_seh-1.dll",
+            "libstdc++-6.dll",
+            "libwinpthread-1.dll"
+        )
+
+        foreach ($lib in $libs) {
+            $src = Join-Path $mingwBin $lib
+            if (Test-Path $src) {
+                Copy-Item $src $targetDir/
+                Write-Host "Copied $lib"
+            } else {
+                Write-Warning "Could not find $lib at $src"
+            }
         }
       shell: pwsh
       continue-on-error: true
