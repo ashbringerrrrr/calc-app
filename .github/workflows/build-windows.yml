@@ -16,7 +16,23 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Install Boost
-      run: choco install boost -y --no-progress
+      run: |
+        $boostUrl = "https://sourceforge.net/projects/boost/files/boost/1.84.0/boost-1.84.0-64-msvc-14.3-1_7z.7z/download"
+        $boostSrcUrl = "https://sourceforge.net/projects/boost/files/boost/1.84.0/boost-1.84.0.7z/download"
+        
+        Write-Host "Downloading Boost sources..."
+        Invoke-WebRequest -Uri $boostSrcUrl -OutFile "boost.7z" -UseBasicParsing
+        
+        Write-Host "Extracting Boost..."
+        choco install 7zip -y --no-progress
+        
+        & "C:\Program Files\7-Zip\7z.exe" x boost.7z -oboost_dir
+        
+        Move-Item -Path "boost_dir\boost-1.84.0" -Destination "C:\local\boost"
+        echo "BOOST_ROOT=C:\local\boost" >> $env:GITHUB_ENV
+        echo "Boost_INCLUDE_DIR=C:\local\boost" >> $env:GITHUB_ENV
+        
+        Write-Host "Boost installed at C:\local\boost"
       shell: pwsh
 
     - name: Setup Qt
