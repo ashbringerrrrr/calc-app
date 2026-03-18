@@ -4,15 +4,17 @@
         <file>ui/styles/Theme.qml</file>
         <file>ui/views/CalcView.qml</file>
         <file>ui/components/CalcButton.qml</file>
-        <file>ui/assets/back1_button.svg</file>
-        <file>ui/assets/back2_button.svg</file>
-        <file>ui/assets/back_button-1.svg</file>
-        <file>ui/assets/back_button-2.svg</file>
-        <file>ui/assets/back_button.svg</file>
+        <file>ui/assets/btn_cancel.svg</file>
+        <file>ui/assets/btn_cancel_active.svg</file>
+        <file>ui/assets/btn_num.svg</file>
+        <file>ui/assets/btn_num_active.svg</file>
+        <file>ui/assets/btn_operator_active.svg</file>
+        <file>ui/assets/btn_operator.svg</file>
         <file>ui/assets/battery.svg</file>
         <file>ui/assets/bkt.svg</file>
         <file>ui/assets/bounds.svg</file>
         <file>ui/assets/cellular.svg</file>
+        <file>ui/assets/calculator_mockup.png</file>
         <file>ui/assets/division.svg</file>
         <file>ui/assets/equal.svg</file>
         <file>ui/assets/minus.svg</file>
@@ -22,5 +24,7 @@
         <file>ui/assets/plus_minus.svg</file>
         <file>ui/assets/wifi.svg</file>
         <file>ui/assets/bg_display.svg</file>
+        <file>ui/views/DesignOverlay.qml</file>
+        <file>ui/views/SecretMenuView.qml</file>
     </qresource>
 </RCC>

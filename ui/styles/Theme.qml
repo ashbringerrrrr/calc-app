@@ -5,56 +5,71 @@ import QtQuick 2.15
 QtObject {
     id: theme
 
-    property color darkBlue: "#024873" // Theme_1_1
-    property color teal: "#04BFAD" // Theme_1_3
-    property color textWhite: "#FFFFFF" // Theme_1_6
+    // Цвета, большая часть цветов - цвета кнопок, которые сделаны как svg-шки, в случае чего добавить их сюда не составляет большого труда
+    property color darkBlue: "#024873"
+    property color teal: "#04BFAD"
+    property color textWhite: "#FFFFFF"
 
+    // Размеры, в связи с жесткой фиксации здесь практически не нужны, остались для отладки потенциального ресайза
+    // В случае если понадобиться скалирование, то будут вынесены сюда по группам их элементов и применяться на месте с коэфф. скалирования
     property real buttonSize: 60
-    property real buttonSpacing: 24
-    property real screenMarginLeft: 24
-    property real screenMarginRight: 24
-    property real screenMarginTop: 24
-    property real screenMarginBottom: 40
     property real displayHeight: 156
     property real statusBarHeight: 24
-    property real displayRadius: 30
 
+    // Шрифты
+    // Body_1
     property font fontDisplay: Qt.font({
         family: "Open Sans",
-        weight: Font.SemiBold,
+        weight: 600 // 600
+        ,
         pixelSize: 50,
         lineHeight: 60,
         letterSpacing: 0.5
     })
 
+    // Body_2
     property font fontExpression: Qt.font({
         family: "Open Sans",
-        weight: Font.SemiBold,
+        weight: 600 // 600
+        ,
         pixelSize: 20,
         lineHeight: 30,
         letterSpacing: 0.5
     })
 
+    // Body_3
     property font fontButton: Qt.font({
         family: "Open Sans",
-        weight: Font.SemiBold,
+        weight: 600 // 600
+        ,
         pixelSize: 24,
         lineHeight: 30,
         letterSpacing: 1.0
     })
 
+    //Body_custom, в референсах типографии отсутвует, извлек сам из css
     property font fontStatusBar: Qt.font({
         family: "Roboto",
-        weight: Font.Medium,
+        weight: 500   // 500
+        ,
         pixelSize: 14
     })
 
+    // SVG-ресурсы:
     property string bgDisplay: "qrc:/ui/assets/bg_display.svg"
-    property string bgNumber: "qrc:/ui/assets/back_button-1.svg"
-    property string bgOperator: "qrc:/ui/assets/back_button.svg"
-    property string bgAction: "qrc:/ui/assets/back2_button.svg"
-    property string bgOperatorActive: "qrc:/ui/assets/back_button-2.svg"
 
+    // Кнопки
+    property string bgNumber: "qrc:/ui/assets/btn_num.svg"
+    property string bgNumberActive: "qrc:/ui/assets/btn_num_active.svg"
+
+    property string bgOperator: "qrc:/ui/assets/btn_operator.svg"
+    property string bgOperatorActive: "qrc:/ui/assets/btn_operator_active.svg"
+
+    // bgCancel это не оригинальная svg, а кастомная: по сути сочетание белого и красного фона в одной svg для корректной работы opacity по макету
+    property string bgCancel: "qrc:/ui/assets/btn_cancel.svg"
+    property string bgCancelActive: "qrc:/ui/assets/btn_cancel_active.svg"
+
+    // Иконки кнопок
     property string iconDivide: "qrc:/ui/assets/division.svg"
     property string iconMultiply: "qrc:/ui/assets/multiplication.svg"
     property string iconEquals: "qrc:/ui/assets/equal.svg"
@@ -64,6 +79,7 @@ QtObject {
     property string iconPercent: "qrc:/ui/assets/percent.svg"
     property string iconPlus: "qrc:/ui/assets/plus.svg"
 
+    // Иконки в статус баре
     property string iconWifi: "qrc:/ui/assets/wifi.svg"
     property string iconSignal: "qrc:/ui/assets/cellular.svg"
     property string iconBattery: "qrc:/ui/assets/battery.svg"

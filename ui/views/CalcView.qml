@@ -1,87 +1,140 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Shapes 1.15
+import QtQuick.Controls 2.15
 import ThemeModule 1.0
 import "../components"
+import CalculatorModule 1.0
 
 Item {
     id: viewRoot
+    signal openSecretMenu
 
-    property string displayText: "865"
-    property string expressionText: "368+497"
+    property string displayText: CalcEngine.display
+    property string expressionText: CalcEngine.expression
 
+    // Хранит ID последней активной кнопки для isActive-флага для двух типов кнопок отдельно
     property string activeOperatorId: ""
+    property string activeDigitId: ""
 
-    // Заглушка отработки функционала кнопок
+    /**
+         * @brief Обработчик нажатий кнопок,
+         * вызывает методы CalcEngine и отвечает за запись id текущей нажатой кнопки
+         */
     function handleButtonAction(actionId) {
-        console.log("Clicked:", actionId);
+        if (actionId.startsWith("digit_")) {
+            let val = actionId.replace("digit_", "");
 
-        // Набросок обработки операций
-        const ops = ["op_add", "op_subtract", "op_multiply", "op_divide", "op_equals"];
-
-        if (ops.includes(actionId)) {
-            activeOperatorId = actionId;
-        } else if (actionId === "act_clear") {
+            if (val === "dot") {
+                CalcEngine.inputDot();
+            } else {
+                CalcEngine.inputDigit(val);
+            }
+            activeDigitId = actionId;
             activeOperatorId = "";
-        } else if (actionId.startsWith("digit_") || actionId === "op_percent" || actionId.startsWith("func_")) {}
-    }
+        } else if (actionId === "act_clear") {
+            CalcEngine.clear();
+            activeOperatorId = "act_clear";
+            activeDigitId = "";
+        } else {
+            if (actionId === "op_percent")
+                CalcEngine.inputPercent();
+            else if (actionId === "func_plus_minus")
+                CalcEngine.toggleSign();
+            else if (actionId === "func_parentheses")
+                CalcEngine.inputParentheses();
+            else if (actionId === "op_equals")
+                CalcEngine.calculate();
+            else if (["op_add", "op_subtract", "op_multiply", "op_divide"].includes(actionId)) {
+                let map = {
+                    "op_add": "+",
+                    "op_subtract": "-",
+                    "op_multiply": "*",
+                    "op_divide": "/"
+                };
+                CalcEngine.inputOperator(map[actionId]);
+            }
 
-    function handleLongPress(actionId) {
-        console.log("Long Press:", actionId);
-        if (actionId === "op_equals")
-        // заготовка под открытие секректного меню
-        {}
+            activeOperatorId = actionId;
+            activeDigitId = "";
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
+        // Статус-бар
         Rectangle {
+            id: statusBarRect
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.statusBarHeight
             color: Theme.teal
 
-            Row {
+            Item {
+                id: statusWrapper
+                width: 118
+                height: 24
                 anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.margins: 10
-                spacing: 8
+                anchors.top: parent.top
 
                 Image {
-                    width: 19
+                    id: iconWifi
+                    width: 18.045
                     height: 16
-                    anchors.verticalCenter: parent.verticalCenter
                     source: Theme.iconWifi
                     fillMode: Image.PreserveAspectFit
                     smooth: true
+
+                    anchors.left: parent.left
+                    anchors.leftMargin: 16
+
+                    anchors.top: parent.top
+                    anchors.topMargin: 4
                 }
                 Image {
+                    id: iconSignal
                     width: 16
                     height: 16
-                    anchors.verticalCenter: parent.verticalCenter
                     source: Theme.iconSignal
                     fillMode: Image.PreserveAspectFit
                     smooth: true
+
+                    anchors.left: parent.left
+                    anchors.leftMargin: 35
+                    anchors.top: parent.top
+                    anchors.topMargin: 4
                 }
                 Image {
+                    id: iconBattery
                     width: 16
                     height: 16
-                    anchors.verticalCenter: parent.verticalCenter
                     source: Theme.iconBattery
                     fillMode: Image.PreserveAspectFit
                     smooth: true
-                }
 
+                    anchors.left: parent.left
+                    anchors.leftMargin: 55
+
+                    anchors.top: parent.top
+                    anchors.topMargin: 4
+                }
                 Text {
                     text: "12:30"
                     font: Theme.fontStatusBar
                     color: Theme.textWhite
-                    anchors.verticalCenter: parent.verticalCenter
+
+                    anchors.left: parent.left
+                    anchors.leftMargin: 74
+
+                    anchors.top: parent.top
+                    anchors.topMargin: 1
+                    // В результате борьбы с фигмой итог таков: Roboto Medium имеет 2px запаса в
+                    // своем layer properties, следовательно вот и 1px из 3х требуемых
                 }
             }
         }
 
+        // Дисплей
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.displayHeight
@@ -95,63 +148,168 @@ Item {
                 source: Theme.bgDisplay
             }
 
-            Text {
-                id: expressionTextItem
-                text: expressionText
-                font.family: Theme.fontExpression.family
-                font.weight: Theme.fontExpression.weight
-                font.pixelSize: Theme.fontExpression.pixelSize
-                color: Theme.textWhite
-                horizontalAlignment: Text.AlignRight
-
-                anchors.top: parent.top
+            // Контейнер выражения(с скроллом на случай выхода за пределы)
+            Item {
+                id: exprContainer
+                width: 280
+                height: 30
                 anchors.left: parent.left
-                anchors.right: parent.right
-
-                anchors.topMargin: 44
                 anchors.leftMargin: 39
-                anchors.rightMargin: 41
+                anchors.top: parent.top
+                anchors.topMargin: 44
+                clip: true
 
-                width: parent.width - 39 - 41
-                elide: Text.ElideLeft
+                Flickable {
+                    id: exprFlickable
+                    anchors.fill: parent
+                    contentWidth: Math.max(exprText.implicitWidth, width)
+                    contentHeight: parent.height
+                    interactive: contentWidth > width
+                    flickableDirection: Flickable.HorizontalFlick
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.NoButton
+                        hoverEnabled: true
+                        onWheel: {
+                            var d = wheel.angleDelta.y / 8;
+                            exprFlickable.contentX -= d * 3;
+                            exprFlickable.contentX = Math.max(0, Math.min(exprFlickable.contentX, exprFlickable.contentWidth - exprFlickable.width));
+                        }
+                    }
+
+                    ScrollBar.horizontal: ScrollBar {
+                        policy: exprFlickable.contentWidth > exprFlickable.width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                        active: true
+                        z: 10
+                        contentItem: Rectangle {
+                            implicitHeight: 4
+                            radius: 2
+                            color: "#60FFFFFF"
+                            opacity: parent.active ? 1.0 : 0.0
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 200
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: exprText
+                        text: expressionText
+                        font: Theme.fontExpression
+                        color: Theme.textWhite
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+
+                        // Выравнивание текста справа с ростом влево
+                        x: exprFlickable.width - Math.min(exprFlickable.width, exprText.implicitWidth)
+                        y: (exprFlickable.height - exprText.implicitHeight) / 2
+
+                        visible: text !== ""
+
+                        onTextChanged: {
+                            if (exprFlickable.contentWidth > exprFlickable.width) {
+                                Qt.callLater(function () {
+                                    exprFlickable.contentX = exprFlickable.contentWidth - exprFlickable.width;
+                                });
+                            } else {
+                                exprFlickable.contentX = 0;
+                            }
+                        }
+                    }
+                }
             }
 
-            Text {
-                id: resultTextItem
-                text: displayText
-                font.family: Theme.fontDisplay.family
-                font.weight: Theme.fontDisplay.weight
-                font.pixelSize: Theme.fontDisplay.pixelSize
-                color: Theme.textWhite
-                horizontalAlignment: Text.AlignRight
-
-                anchors.bottom: parent.bottom
+            // Контейнер результата
+            Item {
+                id: resContainer
                 anchors.left: parent.left
-                anchors.right: parent.right
-
-                anchors.bottomMargin: 14
                 anchors.leftMargin: 39
-                anchors.rightMargin: 40
+                anchors.top: parent.top
+                anchors.topMargin: 82
+                width: 281
+                height: 60
+                clip: true
 
-                width: parent.width - 39 - 40
-                elide: Text.ElideLeft
+                Flickable {
+                    id: resFlickable
+                    anchors.fill: parent
+                    contentWidth: Math.max(resText.implicitWidth, width)
+                    contentHeight: parent.height
+                    interactive: contentWidth > width
+                    flickableDirection: Flickable.HorizontalFlick
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.NoButton
+                        hoverEnabled: true
+                        onWheel: {
+                            var d = wheel.angleDelta.y / 8;
+                            resFlickable.contentX -= d * 3;
+                            resFlickable.contentX = Math.max(0, Math.min(resFlickable.contentX, resFlickable.contentWidth - resFlickable.width));
+                        }
+                    }
+
+                    ScrollBar.horizontal: ScrollBar {
+                        policy: resFlickable.contentWidth > resFlickable.width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                        active: true
+                        z: 10
+                        contentItem: Rectangle {
+                            implicitHeight: 6
+                            radius: 3
+                            color: "#80FFFFFF"
+                            opacity: parent.active ? 1.0 : 0.0
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 200
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: resText
+                        text: displayText
+                        font: Theme.fontDisplay
+                        color: Theme.textWhite
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+
+                        // Выравнивание текста справа с ростом влево
+                        x: resFlickable.width - Math.min(resFlickable.width, resText.implicitWidth)
+                        y: (resFlickable.height - resText.implicitHeight) / 2
+
+                        onTextChanged: {
+                            if (resFlickable.contentWidth > resFlickable.width) {
+                                Qt.callLater(function () {
+                                    resFlickable.contentX = resFlickable.contentWidth - resFlickable.width;
+                                });
+                            } else {
+                                resFlickable.contentX = 0;
+                            }
+                        }
+                    }
+                }
             }
         }
 
+        // Грид кнопок
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-
             GridLayout {
                 anchors.fill: parent
-                anchors.leftMargin: Theme.screenMarginLeft
-                anchors.rightMargin: Theme.screenMarginRight
-                anchors.topMargin: Theme.screenMarginTop
-                anchors.bottomMargin: Theme.screenMarginBottom
-
+                anchors.leftMargin: 24
+                anchors.rightMargin: 24
+                anchors.topMargin: 24
+                anchors.bottomMargin: 40
                 columns: 4
-                rowSpacing: Theme.buttonSpacing
-                columnSpacing: Theme.buttonSpacing
+                rowSpacing: 24
+                columnSpacing: 24
 
                 property var buttons: [
                     {
@@ -169,8 +327,8 @@ Item {
                     {
                         id: "op_percent",
                         type: "operator",
-                        text: "%",
-                        icon: ""
+                        text: "",
+                        icon: Theme.iconPercent
                     },
                     {
                         id: "op_divide",
@@ -270,7 +428,7 @@ Item {
                     },
                     {
                         id: "op_equals",
-                        type: "equals",
+                        type: "operator",
                         text: "",
                         icon: Theme.iconEquals
                     }
@@ -278,25 +436,29 @@ Item {
 
                 Repeater {
                     model: parent.buttons
-
                     delegate: CalcButton {
                         actionId: modelData.id
                         btnType: modelData.type
                         displayText: modelData.text
                         iconSource: modelData.icon
 
-                        isActive: (modelData.id === viewRoot.activeOperatorId)
+                        // Отображение того что активная кнопка нажата для двух типов кнопок
+                        isActive: {
+                            if (modelData.type === "number") {
+                                return modelData.id === viewRoot.activeDigitId;
+                            } else {
+                                return modelData.id === viewRoot.activeOperatorId;
+                            }
+                        }
 
                         Layout.alignment: Qt.AlignCenter
                         Layout.preferredWidth: Theme.buttonSize
                         Layout.preferredHeight: Theme.buttonSize
 
-                        onActionTriggered: function (id) {
-                            viewRoot.handleButtonAction(id);
-                        }
-
-                        onLongPressTriggered: function (id) {
-                            viewRoot.handleLongPress(id);
+                        onActionTriggered: viewRoot.handleButtonAction(id)
+                        onLongPressTriggered: {
+                            if (id === "op_equals")
+                                CalcEngine.onEqualsLongPressed();
                         }
                     }
                 }

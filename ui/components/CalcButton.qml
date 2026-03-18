@@ -5,11 +5,12 @@ import ThemeModule 1.0
 
 Item {
     id: root
-
     property string actionId: ""
-    property string btnType: "number"
+    property string btnType: "number" // "number", "operator", "action"
     property string displayText: ""
     property string iconSource: ""
+
+    // Флаг активного состояния (кнопка нажата)
     property bool isActive: false
 
     signal actionTriggered(string id)
@@ -18,45 +19,33 @@ Item {
     implicitWidth: Theme.buttonSize
     implicitHeight: Theme.buttonSize
 
-    // Эскиз логики фона
+    // Выбор стиля-svgшки в зависимости от типа кнопки и текущего isActive-флага
     property string currentBgSource: {
-        if (btnType === "action")
-            return Theme.bgAction;
-
-        if ((btnType === "operator" && isActive) || (btnType === "equals" && isActive)) {
-            return Theme.bgOperatorActive;
+        if (btnType === "operator") {
+            return isActive ? Theme.bgOperatorActive : Theme.bgOperator;
         }
 
-        if (btnType === "equals")
-            return Theme.bgOperator;
-        if (btnType === "operator")
-            return Theme.bgOperator;
+        if (btnType === "number") {
+            return isActive ? Theme.bgNumberActive : Theme.bgNumber;
+        }
+
+        if (btnType === "action") {
+            return isActive ? Theme.bgCancelActive : Theme.bgCancel;
+        }
 
         return Theme.bgNumber;
     }
 
-    // определение цвета
-    property color contentColor: {
-        if (btnType === "action")
-            return Theme.textWhite;
-
-        if (btnType === "number")
-            return Theme.darkBlue;
-
-        if (btnType === "operator" || btnType === "equals")
-            return Theme.textWhite;
-
-        return Theme.textWhite;
-    }
+    property color contentColor: (btnType === "number") ? Theme.darkBlue : Theme.textWhite
 
     Image {
         anchors.fill: parent
-        source: root.currentBgSource
+        source: currentBgSource
         fillMode: Image.Stretch
         smooth: true
-        visible: source !== ""
     }
 
+    // Анимация нажатия с затемнением
     Rectangle {
         anchors.fill: parent
         radius: width / 2
@@ -84,45 +73,43 @@ Item {
         Item {
             anchors.fill: parent
             visible: iconSource !== ""
-
             Image {
-                id: iconSourceImage
+                id: iconImg
                 anchors.fill: parent
                 source: iconSource
+                visible: false
                 fillMode: Image.PreserveAspectFit
                 smooth: true
-                visible: false
             }
-
             ColorOverlay {
-                anchors.fill: iconSourceImage
-                source: iconSourceImage
+                anchors.fill: iconImg
+                source: iconImg
                 color: root.contentColor
                 cached: true
             }
         }
-
         Text {
             anchors.fill: parent
             text: displayText
             visible: iconSource === ""
-            font.family: Theme.fontButton.family
-            font.weight: Theme.fontButton.weight
-            font.pixelSize: Theme.fontButton.pixelSize
+            font: Theme.fontButton
+            color: root.contentColor
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            color: root.contentColor
         }
     }
 
     MouseArea {
         id: mouseArea
         anchors.fill: parent
+        pressAndHoldInterval: 4000
+
         onClicked: {
             if (actionId !== "")
                 root.actionTriggered(actionId);
         }
         onPressAndHold: {
+            console.log("[CalcButton] LONG PRESS DETECTED (4s):", actionId);
             if (actionId !== "")
                 root.longPressTriggered(actionId);
         }
