@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt5 REQUIRED COMPONENTS Core Quick QuickControls2)
+find_package(Qt5 REQUIRED COMPONENTS Core Quick QuickControls2 Gui)
 find_package(Boost REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
@@ -36,8 +36,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt5::QuickControls2
 )
 
-enable_testing()
-
 include(FetchContent)
 FetchContent_Declare(
   googletest
@@ -55,6 +53,7 @@ add_executable(CalcAppTests ${TEST_SOURCES})
 target_link_libraries(CalcAppTests PRIVATE
     Qt5::Core
     Qt5::Gui
+    Qt5::Quick
     Boost::headers
     GTest::gtest_main
 )

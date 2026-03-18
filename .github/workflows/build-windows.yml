@@ -1,0 +1,78 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ "main"]
+  pull_request:
+    branches: [ "main"]
+  workflow_dispatch:
+  
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.13'
+        target: 'desktop'
+        arch: 'win64_mingw81'
+        modules: ''
+        dir: '${{ github.workspace }}/qt'
+        cached: 'true'
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B build `
+          -G "MinGW Makefiles" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.13/mingw81_64"
+      shell: pwsh
+
+    - name: Build Project
+      run: |
+        cmake --build build --config Release
+      shell: pwsh
+
+    - name: Deploy Qt Dependencies
+      run: |
+        ${{ github.workspace }}/qt/5.15.13/mingw81_64/bin/windeployqt.exe `
+          --release `
+          --no-compiler-runtime `
+          --no-opengl-sw `
+          build/Release/calcapp.exe
+      shell: pwsh
+      continue-on-error: true
+
+    - name: Copy Runtime Libraries (MinGW)
+      run: |
+        $mingwBin = "C:\msys64\mingw64\bin"
+        $targetDir = "build/Release"
+        
+        if (Test-Path "$mingwBin\libgcc_s_seh-1.dll") {
+            Copy-Item "$mingwBin\libgcc_s_seh-1.dll" "$targetDir/"
+            Copy-Item "$mingwBin\libstdc++-6.dll" "$targetDir/"
+            Copy-Item "$mingwBin\libwinpthread-1.dll" "$targetDir/"
+        } else {
+            Write-Host "MinGW runtime DLLs not found in standard path, relying on windeployqt or system PATH."
+        }
+      shell: pwsh
+      continue-on-error: true
+
+    - name: Archive Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Calculator-Windows-Build
+        path: |
+          build/Release/CalcApp.exe
+          build/Release/*.dll
+          build/Release/platforms/
+          build/Release/styles/
+          build/Release/imageformats/
+          build/Release/qml/
+          build/Release/iconengines/
+        retention-days: 90
