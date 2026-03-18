@@ -14,6 +14,10 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Install Boost
+      run: choco install boost --version=1.86.0 -y
+      shell: pwsh
 
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
@@ -31,7 +35,8 @@ jobs:
         cmake -S . -B build `
           -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.2/mingw81_64"
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.2/mingw81_64" `
+          -Wno-dev
       shell: pwsh
 
     - name: Build Project
@@ -43,9 +48,6 @@ jobs:
       run: |
         $qtBinPath = "${{ github.workspace }}/qt/5.15.2/mingw81_64/bin"
         $exePath = "build/Release/calcapp.exe"
-        
-        Write-Host "Running windeployqt from: $qtBinPath"
-        Write-Host "Target EXE: $exePath"
         
         & "$qtBinPath/windeployqt.exe" `
           --release `
@@ -70,9 +72,6 @@ jobs:
             $src = Join-Path $mingwBin $lib
             if (Test-Path $src) {
                 Copy-Item $src $targetDir/
-                Write-Host "Copied $lib"
-            } else {
-                Write-Warning "Could not find $lib at $src"
             }
         }
       shell: pwsh
