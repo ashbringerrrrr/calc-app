@@ -16,7 +16,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Install Boost
-      run: choco install boost --version=1.86.0 -y
+      run: choco install boost -y --no-progress
       shell: pwsh
 
     - name: Setup Qt
