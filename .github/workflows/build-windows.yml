@@ -18,25 +18,18 @@ jobs:
     - name: Install Boost via vcpkg
       run: |
         $vcpkgPath = "C:\vcpkg\vcpkg.exe"
-        
         if (Test-Path $vcpkgPath) {
-            Write-Host "vcpkg found at $vcpkgPath"
-            & $vcpkgPath list
-            
-            Write-Host "Installing boost..."
             & $vcpkgPath install boost:x64-windows
-            
-            $boostRoot = "C:\vcpkg\installed\x64-windows"
-            echo "BOOST_ROOT=$boostRoot" >> $env:GITHUB_ENV
-            echo "Boost_INCLUDE_DIR=$boostRoot\include" >> $env:GITHUB_ENV
-            Write-Host "Boost installed at $boostRoot"
+            echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
+            echo "Boost_INCLUDE_DIR=C:\vcpkg\installed\x64-windows\include" >> $env:GITHUB_ENV
         } else {
-            Write-Error "vcpkg not found in standard path!"
+            Write-Error "vcpkg not found!"
             exit 1
         }
       shell: pwsh
 
     - name: Setup Qt
+      id: setup_qt
       uses: jurplel/install-qt-action@v4
       with:
         version: '5.15.2'
@@ -46,13 +39,57 @@ jobs:
         dir: '${{ github.workspace }}/qt'
         cache: 'true'
         install-deps: 'false'
+        
+    - name: Debug Paths and Find Files
+      id: find_files
+      shell: pwsh
+      run: |
+        Write-Host "=== Current Workspace: ${{ github.workspace }} ==="
+        Write-Host "=== Listing root directory ==="
+        Get-ChildItem -Path "${{ github.workspace }}" | Select-Object Name
+        
+        Write-Host "=== Looking for Qt installation ==="
+        $qtRoot = Get-ChildItem -Path "${{ github.workspace }}" -Directory -Filter "mingw81_64" -Recurse | Select-Object -First 1
+        
+        if ($null -eq $qtRoot) {
+            Write-Error "ERROR: Could not find 'mingw81_64' folder anywhere in workspace!"
+            Write-Host "Full tree:"
+            Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Depth 2 | Select-Object FullName
+            exit 1
+        }
+        
+        $qtBase = $qtRoot.Parent.FullName
+        Write-Host "Qt Base found at: $qtBase"
+        echo "QT_BASE_PATH=$qtBase" >> $env:GITHUB_ENV
+
+        $windeployqt = Get-ChildItem -Path $qtBase -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
+        if ($null -eq $windeployqt) {
+            Write-Error "ERROR: windeployqt.exe not found!"
+            exit 1
+        }
+        echo "QT_DEPLOY_TOOL=$($windeployqt.FullName)" >> $env:GITHUB_ENV
+
+        Write-Host "=== Looking for CalcApp.exe ==="
+        $appExe = Get-ChildItem -Path "build" -Filter "CalcApp.exe" -Recurse | Select-Object -First 1
+        if ($null -eq $appExe) {
+            Write-Error "ERROR: CalcApp.exe not found in build folder!"
+            Write-Host "Contents of build folder:"
+            Get-ChildItem -Path "build" -Recurse | Select-Object FullName
+            exit 1
+        }
+        Write-Host "Found CalcApp.exe at: $($appExe.FullName)"
+        echo "APP_EXE_PATH=$($appExe.FullName)" >> $env:GITHUB_ENV
+        echo "APP_EXE_DIR=$($appExe.DirectoryName)" >> $env:GITHUB_ENV
+      continue-on-error: false
+
 
     - name: Configure CMake
       run: |
         cmake -S . -B build `
           -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt/5.15.2/mingw81_64" `
+          -DCMAKE_PREFIX_PATH="$env:QT_BASE_PATH" `
+          -DBOOST_ROOT="$env:BOOST_ROOT" `
           -Wno-dev
       shell: pwsh
 
@@ -60,67 +97,34 @@ jobs:
       run: |
         cmake --build build --config Release
       shell: pwsh
-      
-    - name: Find Qt Binaries and EXE
-      id: find_paths
-      shell: pwsh
-      run: |
-        $qtBase = "${{ github.workspace }}/qt/5.15.2/mingw81_64"
-        $windeployqt = Get-ChildItem -Path $qtBase -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
-        
-        if ($windeployqt) {
-            echo "QT_DEPLOY_TOOL=$($windeployqt.FullName)" >> $env:GITHUB_ENV
-            Write-Host "Found windeployqt at: $($windeployqt.FullName)"
-        } else {
-            Write-Error "windeployqt.exe not found!"
-            exit 1
-        }
-
-        $appExe = Get-ChildItem -Path "build" -Filter "CalcApp.exe" -Recurse | Select-Object -First 1
-        
-        if ($appExe) {
-            echo "APP_EXE_PATH=$($appExe.FullName)" >> $env:GITHUB_ENV
-            echo "APP_EXE_DIR=$($appExe.DirectoryName)" >> $env:GITHUB_ENV
-            Write-Host "Found CalcApp.exe at: $($appExe.FullName)"
-        } else {
-            Write-Error "CalcApp.exe not found in build folder!"
-            Get-ChildItem -Path "build" -Filter "*.exe" -Recurse
-            exit 1
-        }
 
     - name: Deploy Qt Dependencies
       run: |
-        # Используем найденные пути
+        Write-Host "Running: $env:QT_DEPLOY_TOOL on $env:APP_EXE_PATH"
         & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
       shell: pwsh
-      continue-on-error: true
 
     - name: Copy Runtime Libraries (MinGW)
       run: |
         $mingwBin = "C:\msys64\mingw64\bin"
         $targetDir = $env:APP_EXE_DIR
-        
         $libs = @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")
         foreach ($lib in $libs) {
             $src = Join-Path $mingwBin $lib
-            if (Test-Path $src) {
-                Copy-Item $src $targetDir/
-                Write-Host "Copied $lib to $targetDir"
-            }
+            if (Test-Path $src) { Copy-Item $src $targetDir/ }
         }
       shell: pwsh
-      continue-on-error: true
 
     - name: Archive Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Calculator-Windows-Build
         path: |
-          build/Release/CalcApp.exe
-          build/Release/*.dll
-          build/Release/platforms/
-          build/Release/styles/
-          build/Release/imageformats/
-          build/Release/qml/
-          build/Release/iconengines/
+          ${{ env.APP_EXE_PATH }}
+          ${{ env.APP_EXE_DIR }}/*.dll
+          ${{ env.APP_EXE_DIR }}/platforms/
+          ${{ env.APP_EXE_DIR }}/styles/
+          ${{ env.APP_EXE_DIR }}/imageformats/
+          ${{ env.APP_EXE_DIR }}/qml/
+          ${{ env.APP_EXE_DIR }}/iconengines/
         retention-days: 90
