@@ -102,8 +102,35 @@ jobs:
         Write-Host "Running windeployqt for: $env:APP_EXE_PATH"
         & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
         
-        if (-not (Test-Path "$env:APP_EXE_DIR\platforms")) {
-            Write-Warning "platforms folder was not created. Deployment might be incomplete."
+        $qtBasePath = Split-Path -Path "$env:QT_DEPLOY_TOOL" -Parent
+        $pluginsSource = Join-Path $qtBasePath "plugins"
+        $targetDir = $env:APP_EXE_DIR
+        
+        Write-Host "Copying plugins from: $pluginsSource"
+        
+        if (Test-Path "$pluginsSource\platforms") {
+            Copy-Item -Path "$pluginsSource\platforms" -Destination "$targetDir" -Recurse -Force
+            Write-Host "Copied platforms folder"
+        } else {
+            Write-Error "ERROR: platforms folder not found at $pluginsSource\platforms"
+            Get-ChildItem -Path $pluginsSource -Directory | Select-Object Name
+            exit 1
+        }
+        
+        $pluginFolders = @("styles", "imageformats", "iconengines")
+        foreach ($folder in $pluginFolders) {
+            if (Test-Path "$pluginsSource\$folder") {
+                Copy-Item -Path "$pluginsSource\$folder" -Destination "$targetDir" -Recurse -Force
+                Write-Host "Copied $folder folder"
+            }
+        }
+        
+        $qmlSource = Join-Path $qtBasePath "qml"
+        if (Test-Path $qmlSource) {
+            Copy-Item -Path $qmlSource -Destination "$targetDir" -Recurse -Force
+            Write-Host "Copied qml folder"
+        } else {
+            Write-Host "WARNING: qml folder not found at $qmlSource (may not be required)"
         }
       shell: pwsh
 
@@ -118,8 +145,6 @@ jobs:
             if (Test-Path $src) {
                 Copy-Item $src $target\
                 Write-Host "Copied $lib"
-            } else {
-                Write-Warning "Missing runtime: $lib"
             }
         }
       shell: pwsh
