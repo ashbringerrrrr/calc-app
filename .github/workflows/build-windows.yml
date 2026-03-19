@@ -15,17 +15,28 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install Boost via vcpkg
+    - name: Install Boost Headers (Fast)
       run: |
-        $vcpkgPath = "C:\vcpkg\vcpkg.exe"
-        if (Test-Path $vcpkgPath) {
-            Write-Host "Installing boost:x64-windows..."
-            & $vcpkgPath install boost:x64-windows
-            echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
-            echo "Boost_INCLUDE_DIR=C:\vcpkg\installed\x64-windows\include" >> $env:GITHUB_ENV
-        } else {
-            throw "vcpkg not found!"
-        }
+        $boostVersion = "1.84.0"
+        $boostUnderscore = $boostVersion.Replace('.', '_')
+        $url = "https://archives.boost.io/release/$boostVersion/source/boost_$boostUnderscore.tar.gz"
+        $outFile = "boost.tar.gz"
+        
+        Write-Host "Downloading Boost headers ($boostVersion)..."
+        Invoke-WebRequest -Uri $url -OutFile $outFile -UseBasicParsing
+        
+        Write-Host "Extracting..."
+        $extractPath = "C:\local\boost"
+        New-Item -ItemType Directory -Force -Path $extractPath | Out-Null
+        
+        tar -xzf $outFile -C $extractPath
+        
+        $innerFolder = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
+        $finalPath = $innerFolder.FullName
+        
+        Write-Host "Boost headers ready at: $finalPath"
+        echo "BOOST_ROOT=$finalPath" >> $env:GITHUB_ENV
+        echo "Boost_INCLUDE_DIR=$finalPath" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Setup Qt
@@ -58,12 +69,10 @@ jobs:
     - name: Build Project
       run: |
         Write-Host "Starting build process..."
-        
         cmake --build build --config Release -j 4
         if ($LASTEXITCODE -ne 0) { throw "Build failed!" }
         
         Write-Host "Build completed successfully."
-        
         Write-Host "=== Contents of build folder ==="
         Get-ChildItem -Path "build" -Recurse -File | Select-Object FullName
       shell: pwsh
@@ -100,12 +109,16 @@ jobs:
     - name: Deploy Qt Dependencies
       run: |
         Write-Host "Running windeployqt for: $env:APP_EXE_PATH"
+        
         & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
         
-        $qtBasePath = Split-Path -Path "$env:QT_DEPLOY_TOOL" -Parent
-        $pluginsSource = Join-Path $qtBasePath "plugins"
+        $qtBinPath = Split-Path -Path "$env:QT_DEPLOY_TOOL" -Parent       # .../mingw81_64/bin
+        $qtRootPath = Split-Path -Path "$qtBinPath" -Parent               # .../mingw81_64
+        $pluginsSource = Join-Path $qtRootPath "plugins"
+        $qmlSource = Join-Path $qtRootPath "qml"
         $targetDir = $env:APP_EXE_DIR
         
+        Write-Host "Qt Root Path: $qtRootPath"
         Write-Host "Copying plugins from: $pluginsSource"
         
         if (Test-Path "$pluginsSource\platforms") {
@@ -113,7 +126,7 @@ jobs:
             Write-Host "Copied platforms folder"
         } else {
             Write-Error "ERROR: platforms folder not found at $pluginsSource\platforms"
-            Get-ChildItem -Path $pluginsSource -Directory | Select-Object Name
+            Get-ChildItem -Path $pluginsSource -Directory -ErrorAction SilentlyContinue | Select-Object Name
             exit 1
         }
         
@@ -124,13 +137,10 @@ jobs:
                 Write-Host "Copied $folder folder"
             }
         }
-        
-        $qmlSource = Join-Path $qtBasePath "qml"
+
         if (Test-Path $qmlSource) {
             Copy-Item -Path $qmlSource -Destination "$targetDir" -Recurse -Force
             Write-Host "Copied qml folder"
-        } else {
-            Write-Host "WARNING: qml folder not found at $qmlSource (may not be required)"
         }
       shell: pwsh
 
@@ -148,7 +158,7 @@ jobs:
             }
         }
       shell: pwsh
-
+      
     - name: Archive Artifact
       uses: actions/upload-artifact@v4
       with:
