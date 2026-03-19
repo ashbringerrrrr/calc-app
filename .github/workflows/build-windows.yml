@@ -19,17 +19,16 @@ jobs:
       run: |
         $vcpkgPath = "C:\vcpkg\vcpkg.exe"
         if (Test-Path $vcpkgPath) {
+            Write-Host "Installing boost:x64-windows..."
             & $vcpkgPath install boost:x64-windows
             echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
             echo "Boost_INCLUDE_DIR=C:\vcpkg\installed\x64-windows\include" >> $env:GITHUB_ENV
         } else {
-            Write-Error "vcpkg not found!"
-            exit 1
+            throw "vcpkg not found!"
         }
       shell: pwsh
 
     - name: Setup Qt
-      id: setup_qt
       uses: jurplel/install-qt-action@v4
       with:
         version: '5.15.2'
@@ -40,78 +39,88 @@ jobs:
         cache: 'true'
         install-deps: 'false'
         
-    - name: Debug Paths and Find Files
-      id: find_files
-      shell: pwsh
-      run: |
-        Write-Host "=== Current Workspace: ${{ github.workspace }} ==="
-        Write-Host "=== Listing root directory ==="
-        Get-ChildItem -Path "${{ github.workspace }}" | Select-Object Name
-        
-        Write-Host "=== Looking for Qt installation ==="
-        $qtRoot = Get-ChildItem -Path "${{ github.workspace }}" -Directory -Filter "mingw81_64" -Recurse | Select-Object -First 1
-        
-        if ($null -eq $qtRoot) {
-            Write-Error "ERROR: Could not find 'mingw81_64' folder anywhere in workspace!"
-            Write-Host "Full tree:"
-            Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Depth 2 | Select-Object FullName
-            exit 1
-        }
-        
-        $qtBase = $qtRoot.Parent.FullName
-        Write-Host "Qt Base found at: $qtBase"
-        echo "QT_BASE_PATH=$qtBase" >> $env:GITHUB_ENV
-
-        $windeployqt = Get-ChildItem -Path $qtBase -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
-        if ($null -eq $windeployqt) {
-            Write-Error "ERROR: windeployqt.exe not found!"
-            exit 1
-        }
-        echo "QT_DEPLOY_TOOL=$($windeployqt.FullName)" >> $env:GITHUB_ENV
-
-        Write-Host "=== Looking for CalcApp.exe ==="
-        $appExe = Get-ChildItem -Path "build" -Filter "CalcApp.exe" -Recurse | Select-Object -First 1
-        if ($null -eq $appExe) {
-            Write-Error "ERROR: CalcApp.exe not found in build folder!"
-            Write-Host "Contents of build folder:"
-            Get-ChildItem -Path "build" -Recurse | Select-Object FullName
-            exit 1
-        }
-        Write-Host "Found CalcApp.exe at: $($appExe.FullName)"
-        echo "APP_EXE_PATH=$($appExe.FullName)" >> $env:GITHUB_ENV
-        echo "APP_EXE_DIR=$($appExe.DirectoryName)" >> $env:GITHUB_ENV
-      continue-on-error: false
-
-
     - name: Configure CMake
       run: |
+        $qtFolder = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Directory -Filter "mingw81_64" | Select-Object -First 1
+        if (-not $qtFolder) { throw "Qt mingw81_64 folder not found!" }
+        $qtBasePath = $qtFolder.Parent.FullName
+        
+        Write-Host "Configuring with Qt at: $qtBasePath"
+        
         cmake -S . -B build `
           -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="$env:QT_BASE_PATH" `
+          -DCMAKE_PREFIX_PATH="$qtBasePath" `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
           -Wno-dev
       shell: pwsh
-
+      
     - name: Build Project
       run: |
-        cmake --build build --config Release
+        Write-Host "Starting build process..."
+        
+        cmake --build build --config Release -j 4
+        if ($LASTEXITCODE -ne 0) { throw "Build failed!" }
+        
+        Write-Host "Build completed successfully."
+        
+        Write-Host "=== Contents of build folder ==="
+        Get-ChildItem -Path "build" -Recurse -File | Select-Object FullName
+      shell: pwsh
+      
+    - name: Locate Executable and Tools
+      id: locate
+      run: |
+        $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | 
+               Where-Object { $_.Name -like "*CalcApp*" } | 
+               Select-Object -First 1
+        
+        if (-not $exe) {
+            $exe = Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | Select-Object -First 1
+        }
+
+        if (-not $exe) {
+            throw "No .exe file found in build directory! Check build logs."
+        }
+        
+        Write-Host "Found EXE: $($exe.FullName)"
+        echo "APP_EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+        echo "APP_EXE_DIR=$($exe.DirectoryName)" >> $env:GITHUB_ENV
+
+        $qtFolder = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Directory -Filter "mingw81_64" | Select-Object -First 1
+        $qtBasePath = $qtFolder.Parent.FullName
+        $deployTool = Get-ChildItem -Path $qtBasePath -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
+        
+        if (-not $deployTool) { throw "windeployqt.exe not found!" }
+        
+        Write-Host "Found Deploy Tool: $($deployTool.FullName)"
+        echo "QT_DEPLOY_TOOL=$($deployTool.FullName)" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Deploy Qt Dependencies
       run: |
-        Write-Host "Running: $env:QT_DEPLOY_TOOL on $env:APP_EXE_PATH"
+        Write-Host "Running windeployqt for: $env:APP_EXE_PATH"
         & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
+        
+        if (-not (Test-Path "$env:APP_EXE_DIR\platforms")) {
+            Write-Warning "platforms folder was not created. Deployment might be incomplete."
+        }
       shell: pwsh
 
-    - name: Copy Runtime Libraries (MinGW)
+    - name: Copy MinGW Runtimes
       run: |
         $mingwBin = "C:\msys64\mingw64\bin"
-        $targetDir = $env:APP_EXE_DIR
+        $target = $env:APP_EXE_DIR
         $libs = @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")
+        
         foreach ($lib in $libs) {
             $src = Join-Path $mingwBin $lib
-            if (Test-Path $src) { Copy-Item $src $targetDir/ }
+            if (Test-Path $src) {
+                Copy-Item $src $target\
+                Write-Host "Copied $lib"
+            } else {
+                Write-Warning "Missing runtime: $lib"
+            }
         }
       shell: pwsh
 
@@ -128,3 +137,4 @@ jobs:
           ${{ env.APP_EXE_DIR }}/qml/
           ${{ env.APP_EXE_DIR }}/iconengines/
         retention-days: 90
+        if-no-files-found: error
