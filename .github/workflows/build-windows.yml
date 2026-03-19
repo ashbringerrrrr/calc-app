@@ -60,35 +60,52 @@ jobs:
       run: |
         cmake --build build --config Release
       shell: pwsh
+      
+    - name: Find Qt Binaries and EXE
+      id: find_paths
+      shell: pwsh
+      run: |
+        $qtBase = "${{ github.workspace }}/qt/5.15.2/mingw81_64"
+        $windeployqt = Get-ChildItem -Path $qtBase -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
+        
+        if ($windeployqt) {
+            echo "QT_DEPLOY_TOOL=$($windeployqt.FullName)" >> $env:GITHUB_ENV
+            Write-Host "Found windeployqt at: $($windeployqt.FullName)"
+        } else {
+            Write-Error "windeployqt.exe not found!"
+            exit 1
+        }
+
+        $appExe = Get-ChildItem -Path "build" -Filter "CalcApp.exe" -Recurse | Select-Object -First 1
+        
+        if ($appExe) {
+            echo "APP_EXE_PATH=$($appExe.FullName)" >> $env:GITHUB_ENV
+            echo "APP_EXE_DIR=$($appExe.DirectoryName)" >> $env:GITHUB_ENV
+            Write-Host "Found CalcApp.exe at: $($appExe.FullName)"
+        } else {
+            Write-Error "CalcApp.exe not found in build folder!"
+            Get-ChildItem -Path "build" -Filter "*.exe" -Recurse
+            exit 1
+        }
 
     - name: Deploy Qt Dependencies
       run: |
-        $qtBinPath = "${{ github.workspace }}/qt/5.15.2/mingw81_64/bin"
-        $exePath = "build/Release/calcapp.exe"
-        
-        & "$qtBinPath/windeployqt.exe" `
-          --release `
-          --no-compiler-runtime `
-          --no-opengl-sw `
-          "$exePath"
+        # Используем найденные пути
+        & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
       shell: pwsh
       continue-on-error: true
 
     - name: Copy Runtime Libraries (MinGW)
       run: |
         $mingwBin = "C:\msys64\mingw64\bin"
-        $targetDir = "build/Release"
+        $targetDir = $env:APP_EXE_DIR
         
-        $libs = @(
-            "libgcc_s_seh-1.dll",
-            "libstdc++-6.dll",
-            "libwinpthread-1.dll"
-        )
-
+        $libs = @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")
         foreach ($lib in $libs) {
             $src = Join-Path $mingwBin $lib
             if (Test-Path $src) {
                 Copy-Item $src $targetDir/
+                Write-Host "Copied $lib to $targetDir"
             }
         }
       shell: pwsh
