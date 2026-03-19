@@ -15,24 +15,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install Boost
+    - name: Install Boost via vcpkg
       run: |
-        $boostUrl = "https://sourceforge.net/projects/boost/files/boost/1.84.0/boost-1.84.0-64-msvc-14.3-1_7z.7z/download"
-        $boostSrcUrl = "https://sourceforge.net/projects/boost/files/boost/1.84.0/boost-1.84.0.7z/download"
+        $vcpkgPath = "C:\vcpkg\vcpkg.exe"
         
-        Write-Host "Downloading Boost sources..."
-        Invoke-WebRequest -Uri $boostSrcUrl -OutFile "boost.7z" -UseBasicParsing
-        
-        Write-Host "Extracting Boost..."
-        choco install 7zip -y --no-progress
-        
-        & "C:\Program Files\7-Zip\7z.exe" x boost.7z -oboost_dir
-        
-        Move-Item -Path "boost_dir\boost-1.84.0" -Destination "C:\local\boost"
-        echo "BOOST_ROOT=C:\local\boost" >> $env:GITHUB_ENV
-        echo "Boost_INCLUDE_DIR=C:\local\boost" >> $env:GITHUB_ENV
-        
-        Write-Host "Boost installed at C:\local\boost"
+        if (Test-Path $vcpkgPath) {
+            Write-Host "vcpkg found at $vcpkgPath"
+            & $vcpkgPath list
+            
+            Write-Host "Installing boost..."
+            & $vcpkgPath install boost:x64-windows
+            
+            $boostRoot = "C:\vcpkg\installed\x64-windows"
+            echo "BOOST_ROOT=$boostRoot" >> $env:GITHUB_ENV
+            echo "Boost_INCLUDE_DIR=$boostRoot\include" >> $env:GITHUB_ENV
+            Write-Host "Boost installed at $boostRoot"
+        } else {
+            Write-Error "vcpkg not found in standard path!"
+            exit 1
+        }
       shell: pwsh
 
     - name: Setup Qt
