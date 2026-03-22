@@ -145,7 +145,7 @@ jobs:
         }
         
         Write-Host "Deployment step completed!"
-	exit 0
+        exit 0
       shell: pwsh
 
     - name: Copy MinGW Runtimes
