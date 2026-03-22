@@ -2,9 +2,9 @@ name: Build Windows Release
 
 on:
   push:
-    branches: [ "test_devops"]
+    branches: [ "main"]
   pull_request:
-    branches: [ "test_devops"]
+    branches: [ "main"]
   workflow_dispatch:
   
 jobs:
