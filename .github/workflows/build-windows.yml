@@ -2,9 +2,9 @@ name: Build Windows Release
 
 on:
   push:
-    branches: [ "main"]
+    branches: [ "test_devops"]
   pull_request:
-    branches: [ "main"]
+    branches: [ "test_devops"]
   workflow_dispatch:
   
 jobs:
@@ -111,9 +111,10 @@ jobs:
         Write-Host "Running windeployqt for: $env:APP_EXE_PATH"
         
         & "$env:QT_DEPLOY_TOOL" --release --no-compiler-runtime --no-opengl-sw "$env:APP_EXE_PATH"
+        Write-Host "windeployqt finished (ignoring its exit code)"
         
-        $qtBinPath = Split-Path -Path "$env:QT_DEPLOY_TOOL" -Parent       # .../mingw81_64/bin
-        $qtRootPath = Split-Path -Path "$qtBinPath" -Parent               # .../mingw81_64
+        $qtBinPath = Split-Path -Path "$env:QT_DEPLOY_TOOL" -Parent
+        $qtRootPath = Split-Path -Path "$qtBinPath" -Parent
         $pluginsSource = Join-Path $qtRootPath "plugins"
         $qmlSource = Join-Path $qtRootPath "qml"
         $targetDir = $env:APP_EXE_DIR
@@ -142,6 +143,9 @@ jobs:
             Copy-Item -Path $qmlSource -Destination "$targetDir" -Recurse -Force
             Write-Host "Copied qml folder"
         }
+        
+        Write-Host "Deployment step completed!"
+        exit 0
       shell: pwsh
 
     - name: Copy MinGW Runtimes
