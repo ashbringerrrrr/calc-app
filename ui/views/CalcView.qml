@@ -86,7 +86,7 @@ Item {
                     smooth: true
 
                     anchors.left: parent.left
-                    anchors.leftMargin: 16
+                    anchors.leftMargin: 14.98
 
                     anchors.top: parent.top
                     anchors.topMargin: 4
@@ -127,9 +127,9 @@ Item {
                     anchors.leftMargin: 74
 
                     anchors.top: parent.top
-                    anchors.topMargin: 1
-                    // В результате борьбы с фигмой итог таков: Roboto Medium имеет 2px запаса в
-                    // своем layer properties, следовательно вот и 1px из 3х требуемых
+                    anchors.topMargin: 3
+                    // Вернул на 3 после проверки в win11 и использовании выгруженного шрифта
+                    // Дело явно в кроссплатформенном отображении одного и того же шрифты
                 }
             }
         }

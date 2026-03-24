@@ -19,9 +19,7 @@ QtObject {
     // Шрифты
     // Body_1
     property font fontDisplay: Qt.font({
-        family: "Open Sans",
-        weight: 600 // 600
-        ,
+        family: "Open Sans SemiBold",
         pixelSize: 50,
         lineHeight: 60,
         letterSpacing: 0.5
@@ -29,9 +27,7 @@ QtObject {
 
     // Body_2
     property font fontExpression: Qt.font({
-        family: "Open Sans",
-        weight: 600 // 600
-        ,
+        family: "Open Sans SemiBold",
         pixelSize: 20,
         lineHeight: 30,
         letterSpacing: 0.5
@@ -39,9 +35,7 @@ QtObject {
 
     // Body_3
     property font fontButton: Qt.font({
-        family: "Open Sans",
-        weight: 600 // 600
-        ,
+        family: "Open Sans SemiBold",
         pixelSize: 24,
         lineHeight: 30,
         letterSpacing: 1.0
@@ -49,9 +43,7 @@ QtObject {
 
     //Body_custom, в референсах типографии отсутвует, извлек сам из css
     property font fontStatusBar: Qt.font({
-        family: "Roboto",
-        weight: 500   // 500
-        ,
+        family: "Roboto Medium",
         pixelSize: 14
     })
 

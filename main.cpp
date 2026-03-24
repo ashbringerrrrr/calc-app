@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QFontDatabase>
 #include "src/calcengine.h"
 
 /**
@@ -12,6 +13,9 @@ int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
     QQmlApplicationEngine engine;
+
+    QFontDatabase::addApplicationFont(":/ui/styles/fonts/OpenSans-SemiBold.ttf");
+    QFontDatabase::addApplicationFont(":/ui/styles/fonts/Roboto-Medium.ttf");
 
     // Регистрация CalcEngine и Theme для использования как qmlSingleton в ui
     qmlRegisterSingletonInstance("CalculatorModule", 1, 0, "CalcEngine", &CalculatorEngine::instance());

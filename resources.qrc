@@ -26,5 +26,7 @@
         <file>ui/assets/bg_display.svg</file>
         <file>ui/views/DesignOverlay.qml</file>
         <file>ui/views/SecretMenuView.qml</file>
+		<file>ui/styles/fonts/OpenSans-SemiBold.ttf</file>
+		<file>ui/styles/fonts/Roboto-Medium.ttf</file>
     </qresource>
 </RCC>
